@@ -1,73 +1,82 @@
-# Welcome to your Lovable project
+# ⚛️ Quantum Cloud Optimizer
 
-## Project info
+### Quantum-Inspired Evolutionary Optimization for Cloud Task Scheduling
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+A web-based simulation platform that compares **Traditional Round-Robin scheduling** with a **Quantum-Inspired Evolutionary Algorithm (QIEA)** for cloud task scheduling.
 
-## How can I edit this code?
+The system evaluates scheduling performance using multiple objectives including:
 
-There are several ways of editing your application.
+- ⚡ Energy Consumption
+- ⏱️ Execution Time
+- 📊 Resource Utilization
+- ✅ Scheduling Efficiency
+- 💰 Estimated Cost
 
-**Use Lovable**
+The application provides an interactive workflow for uploading workloads, configuring optimization parameters, running simulations, benchmarking multiple QIEA runs, and analyzing scheduling performance through tables and visualizations.
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+> **Important:** QIEA in this project is a **quantum-inspired computational simulation**. It does not run on a physical quantum computer or quantum hardware.
 
-Changes made via Lovable will be committed automatically to this repo.
+---
 
-**Use your preferred IDE**
+## 🌐 Project
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+**GitHub Repository**
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+https://github.com/NRachana015/quantum-cloud-optimizer
 
-Follow these steps:
+---
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+## 🎯 Problem Statement
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+Cloud computing environments must efficiently distribute workloads across available Virtual Machines (VMs).
 
-# Step 3: Install the necessary dependencies.
-npm i
+A scheduling strategy that does not consider workload characteristics and system objectives can lead to:
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
+- Higher energy consumption
+- Longer execution time
+- Uneven resource utilization
+- Missed deadlines
+- Increased operating cost
 
-**Edit a file directly in GitHub**
+Traditional scheduling methods such as **Round-Robin** are simple and deterministic, but they do not explicitly search for an allocation that balances several competing objectives simultaneously.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+This project explores whether a **quantum-inspired evolutionary optimization approach** can produce improved scheduling solutions under a simulated cloud environment.
 
-**Use GitHub Codespaces**
+---
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## 💡 Proposed Solution
 
-## What technologies are used for this project?
+The Quantum Cloud Optimizer models cloud task scheduling as an optimization problem.
 
-This project is built with:
+The application generates candidate task-to-VM assignments and evaluates them using a multi-objective fitness function.
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+The QIEA process repeatedly improves candidate schedules using:
 
-## How can I deploy this project?
+1. Quantum-inspired population representation
+2. Fitness evaluation
+3. Selection of promising solutions
+4. Crossover
+5. Mutation
+6. Quantum-inspired rotation
+7. Iterative optimization across generations
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+The final QIEA schedule is compared with a Traditional Round-Robin baseline.
 
-## Can I connect a custom domain to my Lovable project?
+---
 
-Yes, you can!
+# 🧠 Core Concept: QIEA
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+## What is QIEA?
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+A **Quantum-Inspired Evolutionary Algorithm (QIEA)** combines ideas from:
+
+- Evolutionary optimization
+- Probabilistic representation
+- Quantum-inspired state modeling
+
+Instead of using real quantum hardware, the algorithm uses mathematical representations inspired by quantum states to maintain probabilistic candidate solutions.
+
+A simplified quantum-style representation can be expressed as:
+
+```text
+|ψ⟩ = α|0⟩ + β|1⟩
