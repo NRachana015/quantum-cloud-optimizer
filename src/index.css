@@ -1,0 +1,117 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 222 47% 6%;
+    --foreground: 210 40% 93%;
+
+    --card: 222 44% 9%;
+    --card-foreground: 210 40% 93%;
+
+    --popover: 222 44% 9%;
+    --popover-foreground: 210 40% 93%;
+
+    --primary: 188 100% 50%;
+    --primary-foreground: 222 47% 6%;
+
+    --secondary: 222 30% 16%;
+    --secondary-foreground: 210 40% 85%;
+
+    --muted: 222 30% 14%;
+    --muted-foreground: 215 20% 55%;
+
+    --accent: 188 80% 42%;
+    --accent-foreground: 222 47% 6%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 222 30% 18%;
+    --input: 222 30% 18%;
+    --ring: 188 100% 50%;
+
+    --radius: 0.75rem;
+
+    --success: 152 69% 45%;
+    --success-foreground: 222 47% 6%;
+
+    --warning: 38 92% 50%;
+    --warning-foreground: 222 47% 6%;
+
+    --glow-primary: 188 100% 50%;
+    --glow-accent: 200 100% 60%;
+
+    --sidebar-background: 222 44% 8%;
+    --sidebar-foreground: 210 40% 85%;
+    --sidebar-primary: 188 100% 50%;
+    --sidebar-primary-foreground: 222 47% 6%;
+    --sidebar-accent: 222 30% 16%;
+    --sidebar-accent-foreground: 210 40% 85%;
+    --sidebar-border: 222 30% 18%;
+    --sidebar-ring: 188 100% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+}
+
+@layer utilities {
+  .glow-primary {
+    box-shadow:
+      0 0 20px hsl(var(--primary) / 0.3),
+      0 0 60px hsl(var(--primary) / 0.1);
+  }
+
+  .glow-primary-sm {
+    box-shadow:
+      0 0 10px hsl(var(--primary) / 0.2),
+      0 0 30px hsl(var(--primary) / 0.05);
+  }
+
+  .glow-text {
+    text-shadow:
+      0 0 20px hsl(var(--primary) / 0.5),
+      0 0 40px hsl(var(--primary) / 0.2);
+  }
+
+  .gradient-primary {
+    background: linear-gradient(
+      135deg,
+      hsl(var(--primary)),
+      hsl(var(--glow-accent))
+    );
+  }
+
+  .gradient-card {
+    background: linear-gradient(
+      145deg,
+      hsl(var(--card)),
+      hsl(222 44% 12%)
+    );
+  }
+
+  .gradient-hero {
+    background: linear-gradient(
+      180deg,
+      hsl(222 47% 8%) 0%,
+      hsl(222 47% 6%) 100%
+    );
+  }
+
+  .glass {
+    background: hsl(var(--card) / 0.6);
+    backdrop-filter: blur(12px);
+    border: 1px solid hsl(var(--border) / 0.5);
+  }
+}
