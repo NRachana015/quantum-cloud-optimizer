@@ -1,11 +1,26 @@
-import { useEffect, useState, useRef } from 'react';
+import {
+  useEffect,
+  useState,
+  useRef,
+} from 'react';
+
 import { useNavigate } from 'react-router-dom';
+
 import { motion } from 'framer-motion';
-import { CheckCircle2, Loader2 } from 'lucide-react';
+
+import {
+  CheckCircle2,
+  Loader2,
+} from 'lucide-react';
 
 import { Progress } from '@/components/ui/progress';
-import { useSimContext } from '@/context/SimulationContext';
+
 import {
+  useSimContext,
+} from '@/context/SimulationContext';
+
+import {
+  DEFAULT_SEED,
   runSimulation,
   type SimResults,
   type MetricsResult,
@@ -39,31 +54,36 @@ function averageMetrics(
   return {
     energy:
       metrics.reduce(
-        (sum, item) => sum + item.energy,
+        (sum, item) =>
+          sum + item.energy,
         0
       ) / count,
 
     time:
       metrics.reduce(
-        (sum, item) => sum + item.time,
+        (sum, item) =>
+          sum + item.time,
         0
       ) / count,
 
     utilization:
       metrics.reduce(
-        (sum, item) => sum + item.utilization,
+        (sum, item) =>
+          sum + item.utilization,
         0
       ) / count,
 
     efficiency:
       metrics.reduce(
-        (sum, item) => sum + item.efficiency,
+        (sum, item) =>
+          sum + item.efficiency,
         0
       ) / count,
 
     cost:
       metrics.reduce(
-        (sum, item) => sum + item.cost,
+        (sum, item) =>
+          sum + item.cost,
         0
       ) / count,
   };
@@ -77,7 +97,9 @@ function averageFitnessHistory(
   }
 
   const maxLength = Math.max(
-    ...histories.map(history => history.length)
+    ...histories.map(
+      history => history.length
+    )
   );
 
   const averaged: number[] = [];
@@ -88,13 +110,20 @@ function averageFitnessHistory(
     generation++
   ) {
     const values = histories
-      .map(history => history[generation])
-      .filter(value => Number.isFinite(value));
+      .map(
+        history =>
+          history[generation]
+      )
+      .filter(
+        value =>
+          Number.isFinite(value)
+      );
 
     averaged.push(
       values.length > 0
         ? values.reduce(
-            (sum, value) => sum + value,
+            (sum, value) =>
+              sum + value,
             0
           ) / values.length
         : 0
@@ -113,18 +142,27 @@ function buildBenchmarkResult(
     );
   }
 
-  const traditional = averageMetrics(
-    results.map(result => result.traditional)
-  );
+  const traditional =
+    averageMetrics(
+      results.map(
+        result =>
+          result.traditional
+      )
+    );
 
-  const qiea = averageMetrics(
-    results.map(result => result.qiea)
-  );
+  const qiea =
+    averageMetrics(
+      results.map(
+        result =>
+          result.qiea
+      )
+    );
 
   const fitnessHistory =
     averageFitnessHistory(
       results.map(
-        result => result.fitnessHistory
+        result =>
+          result.fitnessHistory
       )
     );
 
@@ -137,7 +175,8 @@ function buildBenchmarkResult(
               qiea.energy
             ) /
             traditional.energy
-          ) * 100
+          ) *
+          100
         : 0,
 
     time:
@@ -148,7 +187,8 @@ function buildBenchmarkResult(
               qiea.time
             ) /
             traditional.time
-          ) * 100
+          ) *
+          100
         : 0,
 
     utilization:
@@ -167,7 +207,8 @@ function buildBenchmarkResult(
               qiea.cost
             ) /
             traditional.cost
-          ) * 100
+          ) *
+          100
         : 0,
   };
 
@@ -176,8 +217,10 @@ function buildBenchmarkResult(
     qiea,
     fitnessHistory,
     improvements,
-    taskCount: results[0].taskCount,
-    vmCount: results[0].vmCount,
+    taskCount:
+      results[0].taskCount,
+    vmCount:
+      results[0].vmCount,
   };
 }
 
@@ -190,22 +233,43 @@ export default function SimulationPage() {
     setResults,
   } = useSimContext();
 
-  const [currentStep, setCurrentStep] =
-    useState(0);
+  const [
+    currentStep,
+    setCurrentStep,
+  ] = useState(0);
 
-  const [detail, setDetail] =
-    useState('');
+  const [
+    detail,
+    setDetail,
+  ] = useState('');
 
-  const [done, setDone] =
-    useState(false);
+  const [
+    done,
+    setDone,
+  ] = useState(false);
 
-  const [error, setError] =
-    useState('');
+  const [
+    error,
+    setError,
+  ] = useState('');
+
+  const [
+    currentRun,
+    setCurrentRun,
+  ] = useState(0);
+
+  const [
+    completedRuns,
+    setCompletedRuns,
+  ] = useState(0);
 
   const ran = useRef(false);
 
   useEffect(() => {
-    if (!parsedData || ran.current) {
+    if (
+      !parsedData ||
+      ran.current
+    ) {
       return;
     }
 
@@ -213,117 +277,193 @@ export default function SimulationPage() {
 
     let cancelled = false;
 
-    const runBenchmark = async () => {
-      try {
-        setError('');
-        setDone(false);
+    const runBenchmark =
+      async () => {
+        try {
+          setError('');
+          setDone(false);
+          setCurrentRun(0);
+          setCompletedRuns(0);
 
-        const benchmarkResults: SimResults[] = [];
+          const benchmarkResults:
+            SimResults[] = [];
 
-        for (
-          let run = 0;
-          run < BENCHMARK_RUNS;
-          run++
-        ) {
+          const baseSeed =
+            Number.isFinite(
+              config.seed
+            )
+              ? Math.trunc(
+                  config.seed as number
+                )
+              : DEFAULT_SEED;
+
+          const benchmarkSeeds:
+            number[] = [];
+
+          for (
+            let run = 0;
+            run < BENCHMARK_RUNS;
+            run++
+          ) {
+            if (cancelled) {
+              return;
+            }
+
+            const runNumber =
+              run + 1;
+
+            const runSeed =
+              (
+                baseSeed +
+                run
+              ) >>> 0;
+
+            benchmarkSeeds.push(
+              runSeed
+            );
+
+            const runConfig = {
+              ...config,
+              seed: runSeed,
+            };
+
+            setCurrentRun(
+              runNumber
+            );
+
+            setCurrentStep(1);
+
+            setDetail(
+              `Benchmark run ${runNumber} of ${BENCHMARK_RUNS} | Seed ${runSeed}`
+            );
+
+            const result =
+              await runSimulation(
+                parsedData,
+                runConfig,
+                (
+                  step,
+                  d
+                ) => {
+                  if (
+                    cancelled
+                  ) {
+                    return;
+                  }
+
+                  setCurrentStep(
+                    step
+                  );
+
+                  if (d) {
+                    setDetail(
+                      `Run ${runNumber}/${BENCHMARK_RUNS} | Seed ${runSeed} | ${d}`
+                    );
+                  }
+                }
+              );
+
+            benchmarkResults.push(
+              result
+            );
+
+            setCompletedRuns(
+              runNumber
+            );
+
+            setCurrentStep(5);
+
+            setDetail(
+              `Completed benchmark run ${runNumber} of ${BENCHMARK_RUNS} | Seed ${runSeed}`
+            );
+
+            await new Promise(
+              resolve =>
+                setTimeout(
+                  resolve,
+                  250
+                )
+            );
+          }
+
           if (cancelled) {
             return;
           }
 
-          const runNumber = run + 1;
+          sessionStorage.setItem(
+            'quantum_benchmark_runs',
+            JSON.stringify(
+              benchmarkResults
+            )
+          );
 
-          setCurrentStep(1);
+          sessionStorage.setItem(
+            'quantum_benchmark_run_count',
+            String(
+              BENCHMARK_RUNS
+            )
+          );
+
+          sessionStorage.setItem(
+            'quantum_benchmark_base_seed',
+            String(
+              baseSeed
+            )
+          );
+
+          sessionStorage.setItem(
+            'quantum_benchmark_seeds',
+            JSON.stringify(
+              benchmarkSeeds
+            )
+          );
+
+          const finalResult =
+            buildBenchmarkResult(
+              benchmarkResults
+            );
+
+          setResults(
+            finalResult
+          );
+
+          setDone(true);
+
+          setCurrentRun(
+            BENCHMARK_RUNS
+          );
+
+          setCompletedRuns(
+            BENCHMARK_RUNS
+          );
+
           setDetail(
-            `Benchmark run ${runNumber} of ${BENCHMARK_RUNS}`
+            `Benchmark completed successfully: ${BENCHMARK_RUNS} independent runs averaged. Base seed: ${baseSeed}.`
           );
 
-          const result = await runSimulation(
-            parsedData,
-            config,
-            (step, d) => {
-              if (cancelled) {
-                return;
+          setTimeout(
+            () => {
+              if (!cancelled) {
+                nav('/results');
               }
-
-              setCurrentStep(step);
-
-              if (d) {
-                setDetail(
-                  `Run ${runNumber}/${BENCHMARK_RUNS} | ${d}`
-                );
-              }
-            }
+            },
+            1200
+          );
+        } catch (err) {
+          console.error(
+            'Benchmark simulation failed:',
+            err
           );
 
-          benchmarkResults.push(result);
-
-          setCurrentStep(5);
-          setDetail(
-            `Completed benchmark run ${runNumber} of ${BENCHMARK_RUNS}`
-          );
-
-          await new Promise(resolve =>
-            setTimeout(resolve, 250)
-          );
-        }
-
-        if (cancelled) {
-          return;
-        }
-
-        // ----------------------------------------------------
-        // SAVE INDIVIDUAL RUNS FOR RESULTS PAGE
-        // ----------------------------------------------------
-
-        sessionStorage.setItem(
-          'quantum_benchmark_runs',
-          JSON.stringify(
-            benchmarkResults
-          )
-        );
-
-        sessionStorage.setItem(
-          'quantum_benchmark_run_count',
-          String(BENCHMARK_RUNS)
-        );
-
-        // ----------------------------------------------------
-        // BUILD AVERAGED RESULT
-        // ----------------------------------------------------
-
-        const finalResult =
-          buildBenchmarkResult(
-            benchmarkResults
-          );
-
-        setResults(finalResult);
-
-        setDone(true);
-
-        setDetail(
-          `Benchmark completed successfully: ${BENCHMARK_RUNS} independent runs averaged.`
-        );
-
-        setTimeout(() => {
           if (!cancelled) {
-            nav('/results');
+            setError(
+              err instanceof Error
+                ? err.message
+                : 'An unexpected error occurred.'
+            );
           }
-        }, 1200);
-
-      } catch (err) {
-        console.error(
-          'Benchmark simulation failed:',
-          err
-        );
-
-        if (!cancelled) {
-          setError(
-            err instanceof Error
-              ? err.message
-              : 'An unexpected error occurred.'
-          );
         }
-      }
-    };
+      };
 
     runBenchmark();
 
@@ -353,6 +493,27 @@ export default function SimulationPage() {
         95,
         (currentStep / 5) * 100
       );
+
+  const displayedBaseSeed =
+    Number.isFinite(
+      config.seed
+    )
+      ? Math.trunc(
+          config.seed as number
+        )
+      : DEFAULT_SEED;
+
+  const displayedSeeds =
+    Array.from(
+      {
+        length: BENCHMARK_RUNS,
+      },
+      (_, index) =>
+        (
+          displayedBaseSeed +
+          index
+        ) >>> 0
+    );
 
   return (
     <div className="min-h-screen pt-24 pb-12 flex items-center justify-center">
@@ -410,7 +571,8 @@ export default function SimulationPage() {
             className="mb-8 h-2"
           />
 
-          <div className="mb-6 rounded-lg border border-border bg-secondary/30 p-4">
+          {/* Benchmark information */}
+          <div className="mb-4 rounded-lg border border-border bg-secondary/30 p-4">
 
             <p className="text-xs text-muted-foreground">
               Benchmark Mode
@@ -421,27 +583,139 @@ export default function SimulationPage() {
             </p>
 
             <p className="text-xs text-muted-foreground mt-1">
+              Base seed: {displayedBaseSeed}
+            </p>
+
+            <p className="text-xs text-muted-foreground mt-1">
+              Each run uses a deterministic seed offset
+              to preserve independent stochastic trials.
+            </p>
+
+            <p className="text-xs text-muted-foreground mt-1">
               The dashboard calculates average,
               minimum, maximum and standard deviation.
             </p>
 
           </div>
 
+          {/* Permanent benchmark seed schedule */}
+          <div className="mb-6 rounded-lg border border-border bg-background p-4 text-left">
+
+            <div className="flex items-center justify-between mb-3">
+
+              <div>
+                <p className="text-sm font-semibold">
+                  Benchmark Seed Schedule
+                </p>
+
+                <p className="text-xs text-muted-foreground mt-1">
+                  Base seed + run offset
+                </p>
+              </div>
+
+              <div className="text-xs font-mono text-muted-foreground">
+                {completedRuns}/{BENCHMARK_RUNS}
+              </div>
+
+            </div>
+
+            <div className="space-y-2">
+
+              {displayedSeeds.map(
+                (seed, index) => {
+
+                  const runNumber =
+                    index + 1;
+
+                  const isCurrent =
+                    currentRun ===
+                      runNumber &&
+                    !done &&
+                    !error;
+
+                  const isCompleted =
+                    completedRuns >=
+                      runNumber ||
+                    done;
+
+                  return (
+                    <div
+                      key={seed}
+                      className={`
+                        flex items-center justify-between
+                        rounded-md border px-3 py-2
+                        transition-all
+                        ${
+                          isCurrent
+                            ? 'border-primary/40 bg-primary/10'
+                            : isCompleted
+                              ? 'border-success/20 bg-success/5'
+                              : 'border-border bg-secondary/20'
+                        }
+                      `}
+                    >
+
+                      <div className="flex items-center gap-2">
+
+                        {isCompleted ? (
+                          <CheckCircle2 className="w-4 h-4 text-success shrink-0" />
+                        ) : isCurrent ? (
+                          <Loader2 className="w-4 h-4 text-primary animate-spin shrink-0" />
+                        ) : (
+                          <div className="w-4 h-4 rounded-full border border-border shrink-0" />
+                        )}
+
+                        <span
+                          className={`
+                            text-xs font-medium
+                            ${
+                              isCurrent
+                                ? 'text-primary'
+                                : isCompleted
+                                  ? 'text-foreground'
+                                  : 'text-muted-foreground'
+                            }
+                          `}
+                        >
+                          Run {runNumber}
+                        </span>
+
+                      </div>
+
+                      <span className="text-xs font-mono text-muted-foreground">
+                        Seed {seed}
+                      </span>
+
+                    </div>
+                  );
+                }
+              )}
+
+            </div>
+
+          </div>
+
+          {/* Simulation steps */}
           <div className="space-y-3 text-left">
 
             {stepLabels.map(
-              (label, index) => {
+              (
+                label,
+                index
+              ) => {
 
                 const stepNum =
                   index + 1;
 
                 const isActive =
-                  currentStep === stepNum &&
+                  currentStep ===
+                    stepNum &&
                   !done &&
                   !error;
 
                 const isDone =
-                  currentStep > stepNum ||
+                  currentStep >
+                    stepNum ||
                   done;
 
                 return (
@@ -500,11 +774,12 @@ export default function SimulationPage() {
 
           </div>
 
-          {done && detail && (
-            <p className="text-xs text-muted-foreground mt-6">
-              {detail}
-            </p>
-          )}
+          {done &&
+            detail && (
+              <p className="text-xs text-muted-foreground mt-6">
+                {detail}
+              </p>
+            )}
 
         </motion.div>
 

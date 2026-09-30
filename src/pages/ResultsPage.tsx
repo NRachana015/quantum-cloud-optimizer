@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import type { ReactNode } from 'react';
@@ -19,6 +19,7 @@ import {
 
 import { Button } from '@/components/ui/button';
 import { useSimContext } from '@/context/SimulationContext';
+import { runSimulation, type SimConfig } from '@/lib/simulation';
 
 import {
   BarChart,
@@ -66,82 +67,10 @@ type VMSensitivityRow = {
 type ChangeType = 'relative' | 'points';
 
 // ============================================================
-// VM SENSITIVITY EXPERIMENT DATA
+// VM SENSITIVITY EXPERIMENT
 // ============================================================
 
-const vmSensitivityData: VMSensitivityRow[] = [
-  {
-    vms: 5,
-    traditional: {
-      energy: 10.56,
-      time: 21.45,
-      utilization: 96.98,
-      efficiency: 76.0,
-      cost: 8.24,
-    },
-    qiea: {
-      energy: 10.54,
-      time: 21.74,
-      utilization: 95.73,
-      efficiency: 76.0,
-      cost: 8.33,
-    },
-  },
-
-  {
-    vms: 10,
-    traditional: {
-      energy: 15.13,
-      time: 20.5,
-      utilization: 50.75,
-      efficiency: 76.0,
-      cost: 15.14,
-    },
-    qiea: {
-      energy: 11.02,
-      time: 12.37,
-      utilization: 84.16,
-      efficiency: 95.6,
-      cost: 9.36,
-    },
-  },
-
-  {
-    vms: 15,
-    traditional: {
-      energy: 11.53,
-      time: 8.98,
-      utilization: 77.24,
-      efficiency: 98.0,
-      cost: 10.14,
-    },
-    qiea: {
-      energy: 11.34,
-      time: 9.15,
-      utilization: 75.85,
-      efficiency: 98.8,
-      cost: 10.28,
-    },
-  },
-
-  {
-    vms: 20,
-    traditional: {
-      energy: 15.81,
-      time: 13.9,
-      utilization: 37.42,
-      efficiency: 92.0,
-      cost: 19.97,
-    },
-    qiea: {
-      energy: 11.62,
-      time: 8.12,
-      utilization: 64.17,
-      efficiency: 99.6,
-      cost: 11.95,
-    },
-  },
-];
+const VM_SENSITIVITY_COUNTS = [5, 10, 15, 20] as const;
 
 // ============================================================
 // HELPERS
@@ -206,7 +135,117 @@ function formatPointChange(value: number) {
 export default function ResultsPage() {
   const nav = useNavigate();
 
-  const { results } = useSimContext();
+  const {
+    parsedData,
+    config,
+    results,
+  } = useSimContext();
+
+  const [vmSensitivityData, setVmSensitivityData] =
+    useState<VMSensitivityRow[]>([]);
+
+  const [vmSensitivityLoading, setVmSensitivityLoading] =
+    useState(false);
+
+  const [vmSensitivityError, setVmSensitivityError] =
+    useState<string | null>(null);
+
+  const [vmSensitivityProgress, setVmSensitivityProgress] =
+    useState('');
+
+  // ----------------------------------------------------------
+  // DYNAMIC VM SENSITIVITY EXPERIMENT
+  // ----------------------------------------------------------
+
+  useEffect(() => {
+    if (!parsedData) {
+      setVmSensitivityData([]);
+      setVmSensitivityLoading(false);
+      setVmSensitivityError(null);
+      setVmSensitivityProgress('');
+      return;
+    }
+
+    let cancelled = false;
+
+    const runVMSensitivityExperiment = async () => {
+      const rows: VMSensitivityRow[] = [];
+
+      setVmSensitivityLoading(true);
+      setVmSensitivityError(null);
+      setVmSensitivityData([]);
+      setVmSensitivityProgress(
+        'Preparing controlled VM sensitivity experiment...',
+      );
+
+      try {
+        for (
+          let index = 0;
+          index < VM_SENSITIVITY_COUNTS.length;
+          index++
+        ) {
+          if (cancelled) {
+            return;
+          }
+
+          const vmCount = VM_SENSITIVITY_COUNTS[index];
+
+          setVmSensitivityProgress(
+            `Running ${vmCount} VMs (${index + 1} of ${VM_SENSITIVITY_COUNTS.length})...`,
+          );
+
+          const sensitivityConfig: SimConfig = {
+            ...config,
+            numVMs: vmCount,
+            vmMIPS: 1000,
+          };
+
+          const sensitivityResult = await runSimulation(
+            parsedData,
+            sensitivityConfig,
+            () => {},
+          );
+
+          rows.push({
+            vms: vmCount,
+            traditional: sensitivityResult.traditional,
+            qiea: sensitivityResult.qiea,
+          });
+
+          if (!cancelled) {
+            setVmSensitivityData([...rows]);
+          }
+        }
+
+        if (!cancelled) {
+          setVmSensitivityProgress(
+            'VM sensitivity experiment completed.',
+          );
+        }
+      } catch (error: unknown) {
+        if (!cancelled) {
+          console.error(
+            'VM sensitivity experiment failed:',
+            error,
+          );
+
+          setVmSensitivityError(
+            'Unable to complete the VM sensitivity experiment.',
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setVmSensitivityLoading(false);
+        }
+      }
+    };
+
+    void runVMSensitivityExperiment();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [parsedData, config]);
 
   // ----------------------------------------------------------
   // BENCHMARK RUNS
@@ -423,7 +462,9 @@ export default function ResultsPage() {
 
   const vmUtilizationChart = vmSensitivityData.map((row) => ({
     vms: `${row.vms} VMs`,
-    Traditional: Number(row.traditional.utilization.toFixed(2)),
+    Traditional: Number(
+      row.traditional.utilization.toFixed(2),
+    ),
     QIEA: Number(row.qiea.utilization.toFixed(2)),
   }));
 
@@ -1369,9 +1410,31 @@ export default function ResultsPage() {
               </div>
 
               <div className="text-xs text-muted-foreground">
-                Same workload and 1000 MIPS configuration
+                Same workload • 1000 MIPS per VM
               </div>
             </div>
+
+            {vmSensitivityLoading && (
+              <div className="mb-6 rounded-lg border border-primary/20 bg-primary/5 p-3 text-xs text-muted-foreground">
+                {vmSensitivityProgress}
+              </div>
+            )}
+
+            {!vmSensitivityLoading &&
+              vmSensitivityData.length ===
+                VM_SENSITIVITY_COUNTS.length &&
+              !vmSensitivityError && (
+                <div className="mb-6 rounded-lg border border-primary/20 bg-primary/5 p-3 text-xs text-muted-foreground">
+                  Controlled experiment completed using
+                  simulator-generated results.
+                </div>
+              )}
+
+            {vmSensitivityError && (
+              <div className="mb-6 rounded-lg border border-destructive/20 bg-destructive/5 p-3 text-xs text-destructive">
+                {vmSensitivityError}
+              </div>
+            )}
 
             {/* VM TABLE */}
 
@@ -1630,7 +1693,10 @@ export default function ResultsPage() {
                     />
 
                     <Tooltip
-                      formatter={(value: number, name: string) => [
+                      formatter={(
+                        value: number,
+                        name: string,
+                      ) => [
                         `${value.toFixed(2)}%`,
                         name,
                       ]}
@@ -1688,7 +1754,10 @@ export default function ResultsPage() {
                     />
 
                     <Tooltip
-                      formatter={(value: number, name: string) => [
+                      formatter={(
+                        value: number,
+                        name: string,
+                      ) => [
                         `$${value.toFixed(2)}`,
                         name,
                       ]}
@@ -1737,14 +1806,13 @@ export default function ResultsPage() {
             </div>
 
             <p className="text-sm text-muted-foreground leading-6">
-              The VM sensitivity experiment demonstrates that optimizer
-              behavior depends on the number of available virtual
-              machines. At 10 and 20 VMs, the QIEA simulation shows
-              substantially lower execution time and estimated cost than
-              the Traditional Round-Robin baseline. At 5 and 15 VMs,
-              improvements are smaller and some metrics show slight
-              increases. This variability is retained in the results
-              rather than assuming improvement for every configuration.
+              The VM sensitivity experiment evaluates the same uploaded
+              workload under controlled configurations of 5, 10, 15 and
+              20 VMs while keeping VM processing capacity fixed at 1000
+              MIPS. The values shown in the table and charts are generated
+              directly by the scheduling simulator. Differences between
+              VM configurations are therefore treated as experimental
+              observations rather than predefined results.
             </p>
           </div>
 
@@ -1841,7 +1909,9 @@ export default function ResultsPage() {
             <Button
               variant="outline"
               className="flex-1"
-              onClick={() => nav('/upload')}
+              onClick={() => {
+                nav('/simulation');
+              }}
             >
               <RotateCcw className="w-4 h-4 mr-2" />
               Run Again

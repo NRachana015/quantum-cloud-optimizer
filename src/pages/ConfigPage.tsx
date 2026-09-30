@@ -1,6 +1,10 @@
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Settings, FileText } from 'lucide-react';
+import {
+  Settings,
+  FileText,
+  Shuffle,
+} from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -15,16 +19,18 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
-import { useSimContext } from '@/context/SimulationContext';
-import type { SimConfig } from '@/lib/simulation';
+import {
+  useSimContext,
+} from '@/context/SimulationContext';
 
-// ============================================================
-// TYPES
-// ============================================================
+import {
+  DEFAULT_SEED,
+  type SimConfig,
+} from '@/lib/simulation';
 
 type SliderKey = Exclude<
   keyof SimConfig,
-  'energyModel'
+  'energyModel' | 'seed'
 >;
 
 interface SliderConfig {
@@ -36,24 +42,23 @@ interface SliderConfig {
   group: 'qiea' | 'dc';
 }
 
-// ============================================================
-// CONFIGURATION PAGE
-// ============================================================
+const MAX_SEED =
+  4294967295;
 
 export default function ConfigPage() {
-  const nav = useNavigate();
+
+  const nav =
+    useNavigate();
 
   const {
     parsedData,
     config,
     setConfig,
-  } = useSimContext();
-
-  // ----------------------------------------------------------
-  // NO DATA
-  // ----------------------------------------------------------
+  } =
+    useSimContext();
 
   if (!parsedData) {
+
     return (
       <div className="min-h-screen pt-24 flex items-center justify-center">
 
@@ -77,112 +82,148 @@ export default function ConfigPage() {
     );
   }
 
-  // ----------------------------------------------------------
-  // TYPE-SAFE CONFIG UPDATE
-  // ----------------------------------------------------------
+  const update =
+    <K extends keyof SimConfig>(
+      key: K,
+      value: SimConfig[K]
+    ) => {
 
-  const update = <K extends keyof SimConfig>(
-    key: K,
-    value: SimConfig[K]
-  ) => {
-    setConfig({
-      ...config,
-      [key]: value,
-    });
-  };
+      setConfig({
+        ...config,
+        [key]: value,
+      });
+    };
 
-  // ----------------------------------------------------------
-  // SLIDER CONFIGURATION
-  // ----------------------------------------------------------
+  const sliders:
+    SliderConfig[] = [
+      {
+        key: 'populationSize',
+        label: 'Population Size',
+        min: 10,
+        max: 200,
+        step: 1,
+        group: 'qiea',
+      },
 
-  const sliders: SliderConfig[] = [
-    {
-      key: 'populationSize',
-      label: 'Population Size',
-      min: 10,
-      max: 200,
-      step: 1,
-      group: 'qiea',
-    },
+      {
+        key: 'generations',
+        label: 'Number of Generations',
+        min: 10,
+        max: 500,
+        step: 1,
+        group: 'qiea',
+      },
 
-    {
-      key: 'generations',
-      label: 'Number of Generations',
-      min: 10,
-      max: 500,
-      step: 1,
-      group: 'qiea',
-    },
+      {
+        key: 'mutationRate',
+        label: 'Mutation Rate',
+        min: 0.01,
+        max: 0.5,
+        step: 0.01,
+        group: 'qiea',
+      },
 
-    {
-      key: 'mutationRate',
-      label: 'Mutation Rate',
-      min: 0.01,
-      max: 0.5,
-      step: 0.01,
-      group: 'qiea',
-    },
+      {
+        key: 'crossoverProb',
+        label: 'Crossover Probability',
+        min: 0.1,
+        max: 1.0,
+        step: 0.05,
+        group: 'qiea',
+      },
 
-    {
-      key: 'crossoverProb',
-      label: 'Crossover Probability',
-      min: 0.1,
-      max: 1.0,
-      step: 0.05,
-      group: 'qiea',
-    },
+      {
+        key: 'rotationAngle',
+        label: 'Rotation Angle',
+        min: 0.01,
+        max: 0.1,
+        step: 0.005,
+        group: 'qiea',
+      },
 
-    {
-      key: 'rotationAngle',
-      label: 'Rotation Angle',
-      min: 0.01,
-      max: 0.1,
-      step: 0.005,
-      group: 'qiea',
-    },
+      {
+        key: 'numVMs',
+        label: 'Number of VMs',
+        min: 1,
+        max: 50,
+        step: 1,
+        group: 'dc',
+      },
 
-    {
-      key: 'numVMs',
-      label: 'Number of VMs',
-      min: 1,
-      max: 50,
-      step: 1,
-      group: 'dc',
-    },
-
-    {
-      key: 'vmMIPS',
-      label: 'VM Processing Power (MIPS)',
-      min: 100,
-      max: 5000,
-      step: 50,
-      group: 'dc',
-    },
-  ];
-
-  // ----------------------------------------------------------
-  // QIEA SLIDERS
-  // ----------------------------------------------------------
+      {
+        key: 'vmMIPS',
+        label: 'VM Processing Power (MIPS)',
+        min: 100,
+        max: 5000,
+        step: 50,
+        group: 'dc',
+      },
+    ];
 
   const qieaSliders =
     sliders.filter(
       slider =>
-        slider.group === 'qiea'
+        slider.group ===
+        'qiea'
     );
-
-  // ----------------------------------------------------------
-  // DATA CENTER SLIDERS
-  // ----------------------------------------------------------
 
   const dataCenterSliders =
     sliders.filter(
       slider =>
-        slider.group === 'dc'
+        slider.group ===
+        'dc'
     );
 
-  // ----------------------------------------------------------
-  // UI
-  // ----------------------------------------------------------
+  const currentSeed =
+    Number.isFinite(
+      config.seed
+    )
+      ? Math.trunc(
+          config.seed as number
+        )
+      : DEFAULT_SEED;
+
+  const handleSeedChange = (
+    value: string
+  ) => {
+
+    if (
+      value.trim() === ''
+    ) {
+
+      update(
+        'seed',
+        DEFAULT_SEED
+      );
+
+      return;
+    }
+
+    const parsed =
+      Number(value);
+
+    if (
+      !Number.isFinite(parsed)
+    ) {
+      return;
+    }
+
+    const safeSeed =
+      Math.min(
+        MAX_SEED,
+        Math.max(
+          0,
+          Math.trunc(
+            parsed
+          )
+        )
+      );
+
+    update(
+      'seed',
+      safeSeed
+    );
+  };
 
   return (
     <div className="min-h-screen pt-24 pb-12">
@@ -200,10 +241,6 @@ export default function ConfigPage() {
           }}
         >
 
-          {/* ------------------------------------------------
-              HEADER
-          ------------------------------------------------ */}
-
           <div className="flex items-center gap-3 mb-2">
 
             <Settings
@@ -220,10 +257,6 @@ export default function ConfigPage() {
             Tune the QIEA algorithm and
             data center parameters.
           </p>
-
-          {/* ------------------------------------------------
-              FILE INFORMATION
-          ------------------------------------------------ */}
 
           <div
             className="
@@ -260,9 +293,9 @@ export default function ConfigPage() {
 
           </div>
 
-          {/* ------------------------------------------------
-              QIEA PARAMETERS
-          ------------------------------------------------ */}
+          {/* ================================================== */}
+          {/* QIEA PARAMETERS */}
+          {/* ================================================== */}
 
           <div className="mb-8">
 
@@ -281,10 +314,15 @@ export default function ConfigPage() {
 
               {qieaSliders.map(
                 slider => (
+
                   <SliderField
                     key={slider.key}
                     label={slider.label}
-                    value={config[slider.key]}
+                    value={
+                      config[
+                        slider.key
+                      ]
+                    }
                     min={slider.min}
                     max={slider.max}
                     step={slider.step}
@@ -296,6 +334,7 @@ export default function ConfigPage() {
                         )
                     }
                   />
+
                 )
               )}
 
@@ -303,9 +342,9 @@ export default function ConfigPage() {
 
           </div>
 
-          {/* ------------------------------------------------
-              DATA CENTER PARAMETERS
-          ------------------------------------------------ */}
+          {/* ================================================== */}
+          {/* DATA CENTER PARAMETERS */}
+          {/* ================================================== */}
 
           <div className="mb-8">
 
@@ -324,10 +363,15 @@ export default function ConfigPage() {
 
               {dataCenterSliders.map(
                 slider => (
+
                   <SliderField
                     key={slider.key}
                     label={slider.label}
-                    value={config[slider.key]}
+                    value={
+                      config[
+                        slider.key
+                      ]
+                    }
                     min={slider.min}
                     max={slider.max}
                     step={slider.step}
@@ -339,12 +383,9 @@ export default function ConfigPage() {
                         )
                     }
                   />
+
                 )
               )}
-
-              {/* --------------------------------------------
-                  ENERGY MODEL
-              -------------------------------------------- */}
 
               <div>
 
@@ -361,21 +402,29 @@ export default function ConfigPage() {
                 </Label>
 
                 <Select
-                  value={config.energyModel}
-                  onValueChange={value => {
+                  value={
+                    config.energyModel
+                  }
+                  onValueChange={
+                    value => {
 
-                    if (
-                      value === 'Linear' ||
-                      value === 'Square' ||
-                      value === 'Cubic'
-                    ) {
-                      update(
-                        'energyModel',
-                        value
-                      );
+                      if (
+                        value ===
+                          'Linear' ||
+                        value ===
+                          'Square' ||
+                        value ===
+                          'Cubic'
+                      ) {
+
+                        update(
+                          'energyModel',
+                          value
+                        );
+                      }
+
                     }
-
-                  }}
+                  }
                 >
 
                   <SelectTrigger
@@ -410,9 +459,91 @@ export default function ConfigPage() {
 
           </div>
 
-          {/* ------------------------------------------------
-              RUN SIMULATION
-          ------------------------------------------------ */}
+          {/* ================================================== */}
+          {/* REPRODUCIBILITY */}
+          {/* ================================================== */}
+
+          <div className="mb-8">
+
+            <h2
+              className="
+                text-lg
+                font-semibold
+                mb-2
+                text-primary
+              "
+            >
+              Reproducibility
+            </h2>
+
+            <p className="text-sm text-muted-foreground mb-4">
+              Use a fixed random seed to reproduce the same
+              QIEA experiment with the same dataset and
+              configuration.
+            </p>
+
+            <div
+              className="
+                rounded-xl
+                border
+                border-border
+                bg-secondary/30
+                p-5
+              "
+            >
+
+              <div className="flex items-center gap-3 mb-3">
+
+                <Shuffle
+                  className="w-5 h-5 text-primary"
+                />
+
+                <Label
+                  htmlFor="random-seed"
+                  className="text-sm font-medium"
+                >
+                  Random Seed
+                </Label>
+
+              </div>
+
+              <input
+                id="random-seed"
+                type="number"
+                min={0}
+                max={MAX_SEED}
+                step={1}
+                value={currentSeed}
+                onChange={event =>
+                  handleSeedChange(
+                    event.target.value
+                  )
+                }
+                className="
+                  w-full
+                  h-11
+                  rounded-md
+                  border
+                  border-border
+                  bg-background
+                  px-3
+                  font-mono
+                  text-sm
+                  outline-none
+                  focus:ring-2
+                  focus:ring-primary/40
+                  focus:border-primary
+                "
+              />
+
+              <p className="text-xs text-muted-foreground mt-2">
+                Benchmark runs use this base seed with a
+                different offset for each independent run.
+              </p>
+
+            </div>
+
+          </div>
 
           <Button
             className="
@@ -435,10 +566,6 @@ export default function ConfigPage() {
   );
 }
 
-// ============================================================
-// SLIDER FIELD
-// ============================================================
-
 function SliderField({
   label,
   value,
@@ -452,12 +579,10 @@ function SliderField({
   min: number;
   max: number;
   step: number;
-  onChange: (value: number) => void;
+  onChange: (
+    value: number
+  ) => void;
 }) {
-
-  // ----------------------------------------------------------
-  // VALUE FORMATTING
-  // ----------------------------------------------------------
 
   const formattedValue =
     step < 1
@@ -505,24 +630,27 @@ function SliderField({
         min={min}
         max={max}
         step={step}
-        value={[value]}
-        onValueChange={(
-          values
-        ) => {
+        value={[
+          value
+        ]}
+        onValueChange={
+          values => {
 
-          const nextValue =
-            values[0];
+            const nextValue =
+              values[0];
 
-          if (
-            typeof nextValue ===
-            'number'
-          ) {
-            onChange(
-              nextValue
-            );
+            if (
+              typeof nextValue ===
+              'number'
+            ) {
+
+              onChange(
+                nextValue
+              );
+            }
+
           }
-
-        }}
+        }
         className="w-full"
       />
 

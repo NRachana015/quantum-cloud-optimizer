@@ -13,6 +13,12 @@ export interface SimConfig {
   numVMs: number;
   vmMIPS: number;
   energyModel: 'Linear' | 'Cubic' | 'Square';
+
+  /**
+   * Optional for backward compatibility.
+   * When omitted or invalid, DEFAULT_SEED is used.
+   */
+  seed?: number;
 }
 
 export interface MetricsResult {
@@ -44,13 +50,91 @@ export interface SimResults {
 
 const HALF_PI = Math.PI / 2;
 
+export const DEFAULT_SEED = 12345;
+
+// ============================================================
+// SEEDED RANDOM NUMBER GENERATOR
+// ============================================================
+
+/**
+ * Converts the supplied seed into a stable unsigned
+ * 32-bit integer.
+ */
+function normalizeSeed(
+  seed: number | undefined
+): number {
+
+  if (
+    typeof seed !== 'number' ||
+    !Number.isFinite(seed)
+  ) {
+    return DEFAULT_SEED;
+  }
+
+  return Math.trunc(seed) >>> 0;
+}
+
+/**
+ * Deterministic pseudo-random number generator.
+ *
+ * The same seed always produces the same sequence.
+ *
+ * This replaces Math.random() inside the QIEA engine
+ * so simulations can be reproduced exactly.
+ */
+function createSeededRandom(
+  seed: number
+): () => number {
+
+  let state =
+    normalizeSeed(seed);
+
+  return () => {
+
+    state += 0x6D2B79F5;
+
+    let t =
+      state;
+
+    t =
+      Math.imul(
+        t ^ (t >>> 15),
+        t | 1
+      );
+
+    t ^=
+      t +
+      Math.imul(
+        t ^ (t >>> 7),
+        t | 61
+      );
+
+    return (
+      (t ^ (t >>> 14)) >>> 0
+    ) / 4294967296;
+  };
+}
+
 // ============================================================
 // ENERGY MODEL
 // ============================================================
 
-function getPowerFactor(model: string): number {
-  if (model === 'Cubic') return 0.15;
-  if (model === 'Square') return 0.12;
+function getPowerFactor(
+  model: string
+): number {
+
+  if (
+    model === 'Cubic'
+  ) {
+    return 0.15;
+  }
+
+  if (
+    model === 'Square'
+  ) {
+    return 0.12;
+  }
+
   return 0.1;
 }
 
@@ -58,36 +142,57 @@ function getPowerFactor(model: string): number {
 // COLUMN DETECTION
 // ============================================================
 
-function detectColumns(data: ParsedData) {
-  const headers = data.headers;
-  const rows = data.rows;
+function detectColumns(
+  data: ParsedData
+) {
 
-  const lower = headers.map(
-    h => h.toLowerCase().trim()
-  );
+  const headers =
+    data.headers;
+
+  const rows =
+    data.rows;
+
+  const lower =
+    headers.map(
+      h =>
+        h.toLowerCase().trim()
+    );
 
   const matchColumn = (
     candidates: string[]
   ): string | null => {
 
     // Exact match
-    for (const candidate of candidates) {
-      const index =
-        lower.indexOf(candidate);
+    for (
+      const candidate of candidates
+    ) {
 
-      if (index !== -1) {
+      const index =
+        lower.indexOf(
+          candidate
+        );
+
+      if (
+        index !== -1
+      ) {
         return headers[index];
       }
     }
 
     // Partial match
-    for (const candidate of candidates) {
+    for (
+      const candidate of candidates
+    ) {
+
       const index =
         lower.findIndex(
-          h => h.includes(candidate)
+          h =>
+            h.includes(candidate)
         );
 
-      if (index !== -1) {
+      if (
+        index !== -1
+      ) {
         return headers[index];
       }
     }
@@ -95,67 +200,93 @@ function detectColumns(data: ParsedData) {
     return null;
   };
 
-  const taskId = matchColumn([
-    'task_id',
-    'id',
-    'taskid',
-    'cloudlet_id',
-    'job_id'
-  ]);
+  const taskId =
+    matchColumn([
+      'task_id',
+      'id',
+      'taskid',
+      'cloudlet_id',
+      'job_id'
+    ]);
 
-  let workload = matchColumn([
-    'length',
-    'mi',
-    'workload',
-    'size',
-    'cloudlet_length',
-    'task_length'
-  ]);
+  let workload =
+    matchColumn([
+      'length',
+      'mi',
+      'workload',
+      'size',
+      'cloudlet_length',
+      'task_length'
+    ]);
 
-  const deadline = matchColumn([
-    'deadline',
-    'due',
-    'max_time'
-  ]);
+  const deadline =
+    matchColumn([
+      'deadline',
+      'due',
+      'max_time'
+    ]);
 
   // Fallback workload detection
-  if (!workload && rows.length > 0) {
+  if (
+    !workload &&
+    rows.length > 0
+  ) {
 
-    let maxAverage = -Infinity;
+    let maxAverage =
+      -Infinity;
 
-    for (const header of headers) {
+    for (
+      const header of headers
+    ) {
 
-      if (header === taskId) {
+      if (
+        header === taskId
+      ) {
         continue;
       }
 
       const average =
         rows.reduce(
-          (sum, row) =>
+          (
+            sum,
+            row
+          ) =>
             sum +
             (
-              Number.isFinite(row[header])
+              Number.isFinite(
+                row[header]
+              )
                 ? row[header]
                 : 0
             ),
           0
         ) / rows.length;
 
-      if (average > maxAverage) {
-        maxAverage = average;
-        workload = header;
+      if (
+        average > maxAverage
+      ) {
+
+        maxAverage =
+          average;
+
+        workload =
+          header;
       }
     }
   }
 
-  if (!workload) {
+  if (
+    !workload
+  ) {
+
     workload =
       headers[1] ||
       headers[0];
   }
 
   return {
-    workload: workload as string,
+    workload:
+      workload as string,
     deadline,
     taskId
   };
@@ -165,9 +296,16 @@ function detectColumns(data: ParsedData) {
 // UTILITY FUNCTIONS
 // ============================================================
 
-function sleep(ms: number) {
+function sleep(
+  ms: number
+) {
+
   return new Promise(
-    resolve => setTimeout(resolve, ms)
+    resolve =>
+      setTimeout(
+        resolve,
+        ms
+      )
   );
 }
 
@@ -183,25 +321,38 @@ function normalizeAngle(
   angle: number
 ): number {
 
-  let result = angle;
+  let result =
+    angle;
 
   while (
     result < 0 ||
     result > HALF_PI
   ) {
 
-    if (result < 0) {
-      result = -result;
+    if (
+      result < 0
+    ) {
+
+      result =
+        -result;
     }
 
-    if (result > HALF_PI) {
-      result = Math.PI - result;
+    if (
+      result > HALF_PI
+    ) {
+
+      result =
+        Math.PI -
+        result;
     }
   }
 
   return Math.min(
     HALF_PI,
-    Math.max(0, result)
+    Math.max(
+      0,
+      result
+    )
   );
 }
 
@@ -215,7 +366,9 @@ function vmToTargetAngle(
 ): number {
 
   return (
-    (vmIndex + 0.5) /
+    (
+      vmIndex + 0.5
+    ) /
     numVMs
   ) * HALF_PI;
 }
@@ -231,26 +384,39 @@ function stateToVM(
 ): number {
 
   const rawAngle =
-    Math.atan2(beta, alpha);
+    Math.atan2(
+      beta,
+      alpha
+    );
 
   const angle =
-    normalizeAngle(rawAngle);
+    normalizeAngle(
+      rawAngle
+    );
 
   let vmIndex =
     Math.floor(
-      (angle / HALF_PI) * numVMs
+      (
+        angle /
+        HALF_PI
+      ) *
+      numVMs
     );
 
   if (
     vmIndex >= numVMs
   ) {
-    vmIndex = numVMs - 1;
+
+    vmIndex =
+      numVMs - 1;
   }
 
   if (
     vmIndex < 0
   ) {
-    vmIndex = 0;
+
+    vmIndex =
+      0;
   }
 
   return vmIndex;
@@ -270,7 +436,10 @@ function rotateTowardVM(
 
   const currentAngle =
     normalizeAngle(
-      Math.atan2(beta, alpha)
+      Math.atan2(
+        beta,
+        alpha
+      )
     );
 
   const targetAngle =
@@ -280,26 +449,38 @@ function rotateTowardVM(
     );
 
   const difference =
-    targetAngle - currentAngle;
+    targetAngle -
+    currentAngle;
 
   const maxStep =
-    Math.abs(rotationAngle);
+    Math.abs(
+      rotationAngle
+    );
 
   const step =
-    Math.sign(difference) *
+    Math.sign(
+      difference
+    ) *
     Math.min(
-      Math.abs(difference),
+      Math.abs(
+        difference
+      ),
       maxStep
     );
 
   const newAngle =
     normalizeAngle(
-      currentAngle + step
+      currentAngle +
+      step
     );
 
   return [
-    Math.cos(newAngle),
-    Math.sin(newAngle)
+    Math.cos(
+      newAngle
+    ),
+    Math.sin(
+      newAngle
+    )
   ];
 }
 
@@ -322,7 +503,9 @@ function evaluate(
 ): MetricsResult {
 
   const vmLoads =
-    new Array(numVMs).fill(0);
+    new Array(
+      numVMs
+    ).fill(0);
 
   // ----------------------------------------------------------
   // VM LOAD DISTRIBUTION
@@ -335,10 +518,13 @@ function evaluate(
   ) {
 
     const vm =
-      assignment[i] % numVMs;
+      assignment[i] %
+      numVMs;
 
     vmLoads[vm] +=
-      getWorkload(tasks[i]);
+      getWorkload(
+        tasks[i]
+      );
   }
 
   // ----------------------------------------------------------
@@ -347,59 +533,80 @@ function evaluate(
 
   const totalWork =
     vmLoads.reduce(
-      (sum, load) =>
+      (
+        sum,
+        load
+      ) =>
         sum + load,
       0
     );
 
   const avgLoad =
-    totalWork / numVMs;
+    totalWork /
+    numVMs;
 
   // ----------------------------------------------------------
   // ENERGY
   // ----------------------------------------------------------
 
-  let totalEnergy = 0;
+  let totalEnergy =
+    0;
 
-  vmLoads.forEach(load => {
+  vmLoads.forEach(
+    load => {
 
-    const baseEnergy =
-      (load / vmMIPS) * pf;
-
-    const deviation =
-      Math.abs(
-        load - avgLoad
-      ) /
-      (avgLoad || 1);
-
-    if (pf === 0.15) {
-
-      totalEnergy +=
-        baseEnergy *
+      const baseEnergy =
         (
-          1 +
-          deviation * deviation
+          load /
+          vmMIPS
+        ) * pf;
+
+      const deviation =
+        Math.abs(
+          load -
+          avgLoad
+        ) /
+        (
+          avgLoad ||
+          1
         );
 
-    } else if (pf === 0.12) {
+      if (
+        pf === 0.15
+      ) {
 
-      totalEnergy +=
-        baseEnergy *
-        (
-          1 +
-          deviation * 0.8
-        );
+        totalEnergy +=
+          baseEnergy *
+          (
+            1 +
+            deviation *
+            deviation
+          );
 
-    } else {
+      } else if (
+        pf === 0.12
+      ) {
 
-      totalEnergy +=
-        baseEnergy *
-        (
-          1 +
-          deviation * 0.5
-        );
+        totalEnergy +=
+          baseEnergy *
+          (
+            1 +
+            deviation *
+            0.8
+          );
+
+      } else {
+
+        totalEnergy +=
+          baseEnergy *
+          (
+            1 +
+            deviation *
+            0.5
+          );
+      }
     }
-  });
+  );
 
   // ----------------------------------------------------------
   // EXECUTION TIME / MAKESPAN
@@ -407,12 +614,16 @@ function evaluate(
 
   const vmTimes =
     vmLoads.map(
-      load => load / vmMIPS
+      load =>
+        load /
+        vmMIPS
     );
 
   const makespan =
     tasks.length > 0
-      ? Math.max(...vmTimes)
+      ? Math.max(
+          ...vmTimes
+        )
       : 0;
 
   // ----------------------------------------------------------
@@ -423,23 +634,31 @@ function evaluate(
     makespan > 0
       ? (
           vmTimes.reduce(
-            (sum, time) =>
+            (
+              sum,
+              time
+            ) =>
               sum +
-              time / makespan,
+              time /
+                makespan,
             0
           ) /
           numVMs
-        ) * 100
+        ) *
+        100
       : 0;
 
   // ----------------------------------------------------------
   // SCHEDULING EFFICIENCY
   // ----------------------------------------------------------
 
-  let onTime = 0;
+  let onTime =
+    0;
 
   const vmCurrent =
-    new Array(numVMs).fill(0);
+    new Array(
+      numVMs
+    ).fill(0);
 
   for (
     let i = 0;
@@ -452,16 +671,22 @@ function evaluate(
       numVMs;
 
     vmCurrent[vm] +=
-      getWorkload(tasks[i]) /
+      getWorkload(
+        tasks[i]
+      ) /
       vmMIPS;
 
     const deadline =
-      getDeadline(tasks[i]);
+      getDeadline(
+        tasks[i]
+      );
 
     if (
       deadline === Infinity ||
-      vmCurrent[vm] <= deadline
+      vmCurrent[vm] <=
+        deadline
     ) {
+
       onTime++;
     }
   }
@@ -471,7 +696,8 @@ function evaluate(
       ? (
           onTime /
           tasks.length
-        ) * 100
+        ) *
+        100
       : 0;
 
   // ----------------------------------------------------------
@@ -479,16 +705,23 @@ function evaluate(
   // ----------------------------------------------------------
 
   const cost =
-    totalEnergy * 0.12 +
+    totalEnergy *
+      0.12 +
     numVMs *
       makespan *
       0.065;
 
   return {
-    energy: totalEnergy,
-    time: makespan,
+    energy:
+      totalEnergy,
+
+    time:
+      makespan,
+
     utilization,
+
     efficiency,
+
     cost
   };
 }
@@ -507,11 +740,22 @@ export async function runSimulation(
 ): Promise<SimResults> {
 
   // ----------------------------------------------------------
+  // REPRODUCIBLE RANDOM GENERATOR
+  // ----------------------------------------------------------
+
+  const random =
+    createSeededRandom(
+      config.seed
+    );
+
+  // ----------------------------------------------------------
   // DATA PREPARATION
   // ----------------------------------------------------------
 
   const cols =
-    detectColumns(data);
+    detectColumns(
+      data
+    );
 
   const tasks =
     data.rows;
@@ -522,7 +766,9 @@ export async function runSimulation(
   const numVMs =
     Math.max(
       1,
-      Math.floor(config.numVMs)
+      Math.floor(
+        config.numVMs
+      )
     );
 
   const vmMIPS =
@@ -541,11 +787,14 @@ export async function runSimulation(
   ) => {
 
     const value =
-      task[cols.workload];
+      task[
+        cols.workload
+      ];
 
     if (
       Number.isFinite(value)
     ) {
+
       return Math.max(
         0,
         value
@@ -559,16 +808,22 @@ export async function runSimulation(
     task: Record<string, number>
   ) => {
 
-    if (!cols.deadline) {
+    if (
+      !cols.deadline
+    ) {
+
       return Infinity;
     }
 
     const value =
-      task[cols.deadline];
+      task[
+        cols.deadline
+      ];
 
     if (
       Number.isFinite(value)
     ) {
+
       return Math.max(
         0,
         value
@@ -582,22 +837,34 @@ export async function runSimulation(
   // STEP 1
   // ----------------------------------------------------------
 
-  onProgress(1);
+  onProgress(
+    1
+  );
 
-  await sleep(400);
+  await sleep(
+    400
+  );
 
   // ----------------------------------------------------------
   // TRADITIONAL ROUND-ROBIN BASELINE
   // ----------------------------------------------------------
 
-  onProgress(2);
+  onProgress(
+    2
+  );
 
-  await sleep(300);
+  await sleep(
+    300
+  );
 
   const tradAssign =
     tasks.map(
-      (_, index) =>
-        index % numVMs
+      (
+        _,
+        index
+      ) =>
+        index %
+        numVMs
     );
 
   const tradMetrics =
@@ -615,9 +882,13 @@ export async function runSimulation(
   // STEP 3
   // ----------------------------------------------------------
 
-  onProgress(3);
+  onProgress(
+    3
+  );
 
-  await sleep(300);
+  await sleep(
+    300
+  );
 
   // ----------------------------------------------------------
   // QIEA PARAMETERS
@@ -656,7 +927,9 @@ export async function runSimulation(
    * The angle is restricted to [0, π/2].
    */
 
-  const qubits: number[][][] = [];
+  const qubits:
+    number[][][] =
+    [];
 
   for (
     let i = 0;
@@ -664,7 +937,9 @@ export async function runSimulation(
     i++
   ) {
 
-    const individual: number[][] = [];
+    const individual:
+      number[][] =
+      [];
 
     for (
       let j = 0;
@@ -673,13 +948,19 @@ export async function runSimulation(
     ) {
 
       const angle =
-        Math.random() *
+        random() *
         HALF_PI;
 
-      individual.push([
-        Math.cos(angle),
-        Math.sin(angle)
-      ]);
+      individual.push(
+        [
+          Math.cos(
+            angle
+          ),
+          Math.sin(
+            angle
+          )
+        ]
+      );
     }
 
     qubits.push(
@@ -694,10 +975,12 @@ export async function runSimulation(
   let bestFitness =
     -Infinity;
 
-  let bestAssignment: number[] =
+  let bestAssignment:
+    number[] =
     [];
 
-  const fitnessHistory: number[] =
+  const fitnessHistory:
+    number[] =
     [];
 
   // ----------------------------------------------------------
@@ -724,12 +1007,13 @@ export async function runSimulation(
 
     for (
       let i = 0;
-      i < popSize - 1;
+      i <
+        popSize - 1;
       i += 2
     ) {
 
       if (
-        Math.random() <
+        random() <
           config.crossoverProb &&
         numTasks > 1
       ) {
@@ -737,12 +1021,15 @@ export async function runSimulation(
         const crossoverPoint =
           1 +
           Math.floor(
-            Math.random() *
-            (numTasks - 1)
+            random() *
+            (
+              numTasks - 1
+            )
           );
 
         for (
-          let j = crossoverPoint;
+          let j =
+            crossoverPoint;
           j < numTasks;
           j++
         ) {
@@ -751,9 +1038,13 @@ export async function runSimulation(
             qubits[i][j];
 
           qubits[i][j] =
-            qubits[i + 1][j];
+            qubits[
+              i + 1
+            ][j];
 
-          qubits[i + 1][j] =
+          qubits[
+            i + 1
+          ][j] =
             temp;
         }
       }
@@ -768,9 +1059,11 @@ export async function runSimulation(
         Math.max(
           1,
           Math.floor(
-            numGens / 100
+            numGens /
+              100
           )
-        ) === 0
+        ) ===
+        0
     ) {
 
       onProgress(
@@ -779,12 +1072,16 @@ export async function runSimulation(
           gen + 1
         } of ${numGens} | Best Fitness: ${
           bestFitness > 0
-            ? bestFitness.toFixed(6)
+            ? bestFitness.toFixed(
+                6
+              )
             : '—'
         }`
       );
 
-      await sleep(5);
+      await sleep(
+        5
+      );
     }
 
     // --------------------------------------------------------
@@ -801,7 +1098,8 @@ export async function runSimulation(
       // OBSERVE QUANTUM-INSPIRED STATES
       // ------------------------------------------------------
 
-      const assignment: number[] =
+      const assignment:
+        number[] =
         [];
 
       for (
@@ -861,26 +1159,32 @@ export async function runSimulation(
 
       const utilizationPenalty =
         1 -
-        metrics.utilization / 100;
+        metrics.utilization /
+          100;
 
       const efficiencyPenalty =
         1 -
-        metrics.efficiency / 100;
+        metrics.efficiency /
+          100;
 
       /*
        * Multi-objective weights:
        *
-       * Energy               30%
-       * Execution time       30%
-       * Utilization          20%
-       * Scheduling efficiency20%
+       * Energy                30%
+       * Execution time        30%
+       * Utilization           20%
+       * Scheduling efficiency 20%
        */
 
       const objectiveScore =
-        0.30 * energyScore +
-        0.30 * timeScore +
-        0.20 * utilizationPenalty +
-        0.20 * efficiencyPenalty;
+        0.30 *
+          energyScore +
+        0.30 *
+          timeScore +
+        0.20 *
+          utilizationPenalty +
+        0.20 *
+          efficiencyPenalty;
 
       const fitness =
         1 /
@@ -902,13 +1206,17 @@ export async function runSimulation(
         fitness >
         bestFitness;
 
-      if (isNewBest) {
+      if (
+        isNewBest
+      ) {
 
         bestFitness =
           fitness;
 
         bestAssignment =
-          [...assignment];
+          [
+            ...assignment
+          ];
 
         /*
          * The new global best becomes
@@ -982,24 +1290,30 @@ export async function runSimulation(
       // ------------------------------------------------------
 
       if (
-        Math.random() <
-        config.mutationRate &&
+        random() <
+          config.mutationRate &&
         numTasks > 0
       ) {
 
         const randomTask =
           Math.floor(
-            Math.random() *
+            random() *
             numTasks
           );
 
         const randomAngle =
-          Math.random() *
+          random() *
           HALF_PI;
 
-        qubits[i][randomTask] = [
-          Math.cos(randomAngle),
-          Math.sin(randomAngle)
+        qubits[i][
+          randomTask
+        ] = [
+          Math.cos(
+            randomAngle
+          ),
+          Math.sin(
+            randomAngle
+          )
         ];
       }
     }
@@ -1019,36 +1333,53 @@ export async function runSimulation(
   // STEP 5
   // ----------------------------------------------------------
 
-  onProgress(5);
+  onProgress(
+    5
+  );
 
-  await sleep(300);
+  await sleep(
+    300
+  );
 
   // ----------------------------------------------------------
   // FALLBACK LOAD-BALANCING SOLUTION
   // ----------------------------------------------------------
 
   if (
-    bestAssignment.length === 0 ||
+    bestAssignment.length ===
+      0 ||
     bestFitness <= 0
   ) {
 
     const vmLoads =
-      new Array(numVMs).fill(0);
+      new Array(
+        numVMs
+      ).fill(0);
 
     bestAssignment =
-      new Array(numTasks).fill(0);
+      new Array(
+        numTasks
+      ).fill(0);
 
     const sortedTasks =
       tasks
         .map(
-          (task, index) => ({
+          (
+            task,
+            index
+          ) => ({
             index,
             workload:
-              getWorkload(task)
+              getWorkload(
+                task
+              )
           })
         )
         .sort(
-          (a, b) =>
+          (
+            a,
+            b
+          ) =>
             b.workload -
             a.workload
         );
@@ -1062,14 +1393,19 @@ export async function runSimulation(
 
       const minVM =
         vmLoads.indexOf(
-          Math.min(...vmLoads)
+          Math.min(
+            ...vmLoads
+          )
         );
 
-      bestAssignment[index] =
+      bestAssignment[
+        index
+      ] =
         minVM;
 
-      vmLoads[minVM] +=
-        workload;
+      vmLoads[
+        minVM
+      ] += workload;
     }
   }
 
@@ -1103,7 +1439,8 @@ export async function runSimulation(
               qieaMetrics.energy
             ) /
             tradMetrics.energy
-          ) * 100
+          ) *
+          100
         : 0,
 
     // Relative percentage reduction
@@ -1115,7 +1452,8 @@ export async function runSimulation(
               qieaMetrics.time
             ) /
             tradMetrics.time
-          ) * 100
+          ) *
+          100
         : 0,
 
     // Percentage-point difference
@@ -1137,7 +1475,8 @@ export async function runSimulation(
               qieaMetrics.cost
             ) /
             tradMetrics.cost
-          ) * 100
+          ) *
+          100
         : 0
   };
 

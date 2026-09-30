@@ -1,14 +1,32 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
-import { ParsedData } from '@/lib/fileParser';
-import { SimConfig, SimResults } from '@/lib/simulation';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  type ReactNode,
+} from "react";
+
+import type { ParsedData } from "@/lib/fileParser";
+import {
+  DEFAULT_SEED,
+  type SimConfig,
+  type SimResults,
+} from "@/lib/simulation";
 
 interface SimContextType {
   parsedData: ParsedData | null;
-  setParsedData: (d: ParsedData | null) => void;
+  setParsedData: (
+    data: ParsedData | null
+  ) => void;
+
   config: SimConfig;
-  setConfig: (c: SimConfig) => void;
+  setConfig: (
+    config: SimConfig
+  ) => void;
+
   results: SimResults | null;
-  setResults: (r: SimResults | null) => void;
+  setResults: (
+    results: SimResults | null
+  ) => void;
 }
 
 const defaultConfig: SimConfig = {
@@ -19,25 +37,76 @@ const defaultConfig: SimConfig = {
   rotationAngle: 0.05,
   numVMs: 10,
   vmMIPS: 1000,
-  energyModel: 'Linear',
+  energyModel: "Linear",
+  seed: DEFAULT_SEED,
 };
 
-const SimContext = createContext<SimContextType | undefined>(undefined);
+const SimContext =
+  createContext<
+    SimContextType | undefined
+  >(undefined);
 
-export function SimProvider({ children }: { children: ReactNode }) {
-  const [parsedData, setParsedData] = useState<ParsedData | null>(null);
-  const [config, setConfig] = useState<SimConfig>(defaultConfig);
-  const [results, setResults] = useState<SimResults | null>(null);
+export function SimProvider({
+  children,
+}: {
+  children: ReactNode;
+}) {
+
+  const [
+    parsedData,
+    setParsedData
+  ] =
+    useState<ParsedData | null>(
+      null
+    );
+
+  const [
+    config,
+    setConfig
+  ] =
+    useState<SimConfig>(
+      defaultConfig
+    );
+
+  const [
+    results,
+    setResults
+  ] =
+    useState<SimResults | null>(
+      null
+    );
 
   return (
-    <SimContext.Provider value={{ parsedData, setParsedData, config, setConfig, results, setResults }}>
+    <SimContext.Provider
+      value={{
+        parsedData,
+        setParsedData,
+        config,
+        setConfig,
+        results,
+        setResults,
+      }}
+    >
       {children}
     </SimContext.Provider>
   );
 }
 
+// This hook intentionally lives with its provider because it is part
+// of the SimulationContext public API.
+// eslint-disable-next-line react-refresh/only-export-components
 export function useSimContext() {
-  const ctx = useContext(SimContext);
-  if (!ctx) throw new Error('useSimContext must be inside SimProvider');
-  return ctx;
+
+  const context =
+    useContext(
+      SimContext
+    );
+
+  if (!context) {
+    throw new Error(
+      "useSimContext must be inside SimProvider"
+    );
+  }
+
+  return context;
 }
